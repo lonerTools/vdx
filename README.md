@@ -11,10 +11,10 @@ VDX - Optimized Text Data for Your AI Assistant
 
 Stop dumping massive unorganized data onto your AI workflow.
 
-Diff, Flatten, Compress, Slice, Summarize.<br>
-Use with any 1 or multiple text based documents. <br>
-Produce a 2 file report (dense/index) which you give to your AI assistant,<br> 
-providing instant sight into whatever the documents relate to. <br>
+Diff, Flatten, Slice. Your AI does the rest.<br>
+Use with any 1 or multiple text-based documents. <br>
+Produce a 2-file report (dense/index) which you give to your AI assistant,<br> 
+providing insight into any topic within the documents. <br>
 Projects, Coding, Finance, Medical, and just about anything you can think of. 
 
 __Run, Drag, Drop, Ask.__
@@ -26,7 +26,7 @@ __Run, Drag, Drop, Ask.__
 | "I have many files with changes/edits." | **Mode 1** (Diff) |
 | "I have noisy files (comments/blanks) and want clean text." | **Mode 2** (Flatten) |
 | "My single file is too big for the AI context window." | **Mode 3** (Slice) |
-| "I need to clean up diffs, then slice them." | **Mode 1 → 2 → 3** |
+| "I need to clean up deltas, then slice them." | **Mode 1 → 2 → 3** |
 
 Repository Structure
 ====================
@@ -39,25 +39,6 @@ Repository Structure
 
 __Whether 1 or all, you choose what's needed__
 
-Example Flow- for many files
-===========================
-
-- __Diff mode [1]__
-- Navigate to a directory with many text based files.
-- Choosing the oldest file first helps, but is not required.
-- Select all files relevant to your batch.
-- Output diff report, back out.
-- __Flat mode [2]__
-- Navigate to the diff output directory.
-- Select the dense diff report generated from [1].
-- Output flattened diff, back out.
-- __Slice mode [3]__
-- Navigate to the flattened diff.
-- Selected the dense flat diff.
-- Choose the amount to slice them into.
-- Feed you AI assistant pre-sliced flattened diffs with the index created in mode [1]
-- Lowers AI overhead, makes data easier to see, get better answers.
-
 
 Key Features
 ============
@@ -65,7 +46,8 @@ Key Features
 Differential Comparison (Mode 1)
 --------------------------------
 
-Compare multiple target files against a single reference base file.<br>
+Choose a 'ground truth' or 'original' file as the base to measure changes against.<br>
+- this adds delta over time<br>
 Tracks line additions, deletions, modifications, and exact block movements/renames.<br>
 Exports structured reports (index.tsv, dense.json, readable.md).<br>
 
@@ -81,10 +63,36 @@ Take massive text documents, logs, or source files and cleanly segment them into
 
 Zero-Overhead Launcher (run_vdx.bat)
 ------------------------------------
-
 Acts as a pure, lightweight "Captain/Ship" router.<br>
 Delegating pathing and directory creation entirely to the underlying Python scripts.<br>
 Styled with ANSI colors and clear visual status indicators.<br>
+
+
+Example Workflows:
+==================
+- Workflow A: Diff Identification (Mode 1 only)
+- Workflow B: Noise Reduction (Mode 2 only)
+- Workflow C: Context Window Management (Mode 3 only)
+- Workflow D: Full Analysis Pipeline (Mode 1 → 2 → 3)
+
+Example Workflow D:
+===================
+
+- __Diff mode [1]__
+- Navigate to a directory with many text-based files.
+- Choosing the oldest file first helps, but is not required.
+- Select all files relevant to your batch.
+- Output the delta report for AI, the diff report for you.
+- __Flat mode [2]__
+- Navigate to the delta output directory.
+- Select the dense delta report generated from [1].
+- Output the flattened delta for AI, the diff for you.
+- __Slice mode [3]__
+- Navigate to the flat delta.
+- Select the dense flat delta.
+- Choose the number of slices (# slice <= # lines).
+- Feed your AI assistant pre-sliced flattened deltas with the index created in mode [1]
+- Lowers AI overhead, makes data easier to see, get better answers.
 
 
 
