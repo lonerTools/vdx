@@ -32,7 +32,7 @@ __Run, Drag, Drop, Ask.__
 Repository Structure
 ====================
 ```
-|-- vdx.py          # Anchor Edition: Standard script that outputs reports to user profile (~/.ssdx/)
+|-- vdx.py          # Anchor Edition: Standard script that outputs reports to user profile (~/.ssdx/vdx_reports/)
 |-- vdx-p.py        # Portable Edition: Self-contained script that outputs reports directly to ./vdx_reports/
 |-- run_vdx.bat     # Windows Launcher: Platform path-safe interactive menu wrapper
 |-- run_vdx.sh      # MacOS\Linux Launcher: Platform path-safe interactive menu wrapper
