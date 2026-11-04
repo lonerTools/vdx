@@ -55,8 +55,9 @@ Exports structured reports (index.tsv, dense.json, readable.md).<br>
 Flatten Batch (Mode 2)
 ----------------------
 
-Select and flatten multiple files simultaneously.<br>
-Strips unnecessary comments and collapses blank lines to create clean text streams optimized for LLM ingest.<br>
+Select multiple files and flatten them into a single clean text stream.<br>
+Strips unnecessary comments and collapses blank lines.<br>
+Produces a 2-file report for your AI, and a single, clean readable for you.
 
 Large Text Slicer (Mode 3)
 ----------------------------
