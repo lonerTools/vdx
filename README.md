@@ -1,20 +1,21 @@
 <h1>
 vdx
 </h1>
-Aggregate, delta-encode, linearize, ordinal-segment. <br>
+Diff, Flatten, Slice.<br>
+(delta-encode, linearize, ordinal-segment). <br>
 A simple way to batch documents together, flatten the report to scrub fluff, and then slice into parts of a whole, which will lower overhead for your AI assistant.  <br>
 Also helps with file size upload restrictions.
 
 ***
-VDX - Optimized Text Data for Your AI Assistant
-===============================================
+Optimized Text Data for Your AI Assistant
+=========================================
 
 Stop dumping massive unorganized data onto your AI workflow.
 
 Diff, Flatten, Slice. Your AI does the rest.<br>
 Use with any 1 or multiple text-based documents. <br>
-Produce a 2-file report (dense/index) which you give to your AI assistant,<br> 
-providing insight into any topic within the documents. <br>
+Produce a 2-file report (dense/index) for your AI, and a readable diff for you.<br> 
+Insight into any topic within the documents. <br>
 Projects, Coding, Finance, Medical, and just about anything you can think of. 
 
 __Run, Drag, Drop, Ask.__
@@ -47,24 +48,24 @@ Differential Comparison (Mode 1)
 --------------------------------
 
 Choose a 'ground truth' or 'original' file as the base to measure changes against.<br>
-- this adds delta over time<br>
+- This adds a time dimension to the delta<br>
 Tracks line additions, deletions, modifications, and exact block movements/renames.<br>
 Exports structured reports (index.tsv, dense.json, readable.md).<br>
 
-Flat Batch Compression (Mode 2)
--------------------------------
+Flatten Batch (Mode 2)
+----------------------
 
-Select and compress multiple files simultaneously.<br>
-Strips unnecessary comments and collapses blank lines to create pristine text streams optimized for LLM ingest.<br>
+Select and flatten multiple files simultaneously.<br>
+Strips unnecessary comments and collapses blank lines to create clean text streams optimized for LLM ingest.<br>
 
 Large Text Slicer (Mode 3)
 ----------------------------
-Take massive text documents, logs, or source files and cleanly segment them into $N$ equal chunks for easier processing or manual handling.<br>
+Take massive text documents, logs, or source files and cleanly segment them into N equal chunks for easier processing or manual handling.<br>
 
-Zero-Overhead Launcher (run_vdx.bat)
+Zero-Overhead Dispatcher (run_vdx.bat)
 ------------------------------------
-Acts as a pure, lightweight "Captain/Ship" router.<br>
-Delegating pathing and directory creation entirely to the underlying Python scripts.<br>
+Acts as a pure, lightweight dispatcher.<br>
+Delegating path resolution and directory creation entirely to the underlying Python scripts.<br>
 Styled with ANSI colors and clear visual status indicators.<br>
 
 
@@ -90,16 +91,16 @@ Example Workflow D:
 - __Slice mode [3]__
 - Navigate to the flat delta.
 - Select the dense flat delta.
-- Choose the number of slices (# slice <= # lines).
-- Feed your AI assistant pre-sliced flattened deltas with the index created in mode [1]
+- Choose the number of slices (# slices ≤ # lines).
+- Feed your AI assistant pre-sliced flattened deltas with the index created in Mode [1]
 - Lowers AI overhead, makes data easier to see, get better answers.
 
 
 
-UsageQuick Start (Windows)
-==========================
+Usage Quick Start (Windows)
+===========================
 
-Double-click run_vdx.bat, run_vdx.sh or launch it from your command line terminal. You will be greeted by the interactive runner menu:
+Double-click run_vdx.bat, run_vdx.sh, or launch from your terminal. You will be greeted by the interactive runner menu:
 
 ```
 =====================================================================
@@ -118,7 +119,7 @@ Manual Execution (Python)
 
 If you prefer running the scripts directly via command line:
 
-Global Edition: python vdx.py
+Anchor Edition: python vdx.py
 Portable Edition: python vdx-p.py
 
 Output Architecture
