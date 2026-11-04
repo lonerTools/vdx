@@ -7,17 +7,26 @@ Also helps with file size upload restrictions.
 
 ***
 VDX - Optimized Text Data for Your AI Assistant
-=======================================================
+===============================================
 
-Stop data dumping massive unorganized data onto your AI.
+Stop dumping massive unorganized data onto your AI workflow.
 
-Flatten, Compress, Diff, Version, Summarize, and Split.<br>
-Use on any 1 or multiple text based documents. <br>
-Produce a 2 file report (dense/index) you can give to your AI assistant,<br> 
+Diff, Flatten, Compress, Slice, Summarize.<br>
+Use with any 1 or multiple text based documents. <br>
+Produce a 2 file report (dense/index) which you give to your AI assistant,<br> 
 providing instant sight into whatever the documents relate to. <br>
 Projects, Coding, Finance, Medical, and just about anything you can think of. 
 
 __Run, Drag, Drop, Ask.__
+
+## Quick Decision Matrix
+
+| Your Goal | Use Mode |
+| :--- | :--- |
+| "I have many files with changes/edits." | **Mode 1** (Diff) |
+| "I have noisy files (comments/blanks) and want clean text." | **Mode 2** (Flatten) |
+| "My single file is too big for the AI context window." | **Mode 3** (Slice) |
+| "I need to clean up diffs, then slice them." | **Mode 1 → 2 → 3** |
 
 Repository Structure
 ====================
@@ -42,10 +51,10 @@ Example Flow- for many files
 - Navigate to the diff output directory.
 - Select the dense diff report generated from [1].
 - Output flattened diff, back out.
-- __Split mode [3]__
+- __Slice mode [3]__
 - Navigate to the flattened diff.
 - Selected the dense flat diff.
-- Choose the amount to split them into.
+- Choose the amount to slice them into.
 - Feed you AI assistant pre-sliced flattened diffs with the index created in mode [1]
 - Lowers AI overhead, makes data easier to see, get better answers.
 
@@ -66,7 +75,7 @@ Flat Batch Compression (Mode 2)
 Select and compress multiple files simultaneously.<br>
 Strips unnecessary comments and collapses blank lines to create pristine text streams optimized for LLM ingest.<br>
 
-Large Text Splitter (Mode 3)
+Large Text Slicer (Mode 3)
 ----------------------------
 Take massive text documents, logs, or source files and cleanly segment them into $N$ equal chunks for easier processing or manual handling.<br>
 
