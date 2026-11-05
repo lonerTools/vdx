@@ -60,8 +60,14 @@ Strips unnecessary comments and collapses blank lines.<br>
 Produces a 2-file report for your AI, and a single, clean readable for you.
 
 Large Text Slicer (Mode 3)
-----------------------------
-Take massive text documents, logs, or source files and cleanly segment them into N equal chunks for easier processing or manual handling.<br>
+--------------------------
+Take massive text documents, logs, or source files and cleanly segment them into slices for easier processing or manual handling.<br>
+Comes with its own ledger to aid the AI and/or manual locating of data.<br>
+If needed, slices can be reversed back into the original.<br>
+
+Reconstruction (Mode 4)
+-----------------------
+Undo sliced files to put back together<br>
 
 Zero-Overhead Dispatcher (run_vdx.bat)
 ------------------------------------
@@ -98,8 +104,8 @@ Example Workflow D:
 
 
 
-Usage Quick Start (Windows)
-===========================
+Usage Quick Start 
+=================
 
 Double-click run_vdx.bat, run_vdx.sh, or launch from your terminal. You will be greeted by the interactive runner menu:
 
@@ -113,7 +119,31 @@ Double-click run_vdx.bat, run_vdx.sh, or launch from your terminal. You will be 
   [3] Exit
 =====================================================================
 ```
+VDX menu
+========
+```
+  ======================================================
+  ======================================================
+                     -- vdx --
+                 Diff, Flatten, Slice
+  ======================================================
+  ======================================================
 
+            Recent Reports:
+            • flat_scan_20261028_121413
+            • split_scan_20261028_121406
+            • diff_scan_20261028_140540
+
+  ++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
+  [1] Diff & Comparison Mode (Compare target files against ground truth)
+  [2] Flatten Mode           (Reduce noise in 1 or more files)
+  [3] Slice Mode             (Slice a text file into smaller files)
+  [4] Reconstruct Mode       (Rebuild sliced files from past jobs)
+
+  >>  Select mode [1 - 4]:
+
+```
 
 Manual Execution (Python)
 =========================
