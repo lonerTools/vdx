@@ -150,17 +150,17 @@ Manual Execution (Python)
 
 If you prefer running the scripts directly via command line:
 
-Anchor Edition: python vdx.py
-Portable Edition: python vdx-p.py
+Anchor Edition: python vdx.py<br>
+Portable Edition: python vdx-p.py<br>
 
 Output Architecture
 -------------------
 
 vdx.py <br>
--outputs generated report packages to: %USERPROFILE%\.ssdx\vdx_reports\
+-outputs generated report packages to: %USERPROFILE%\.ssdx\vdx_reports\<br>
 
 vdx-p.py <br>
--keeps everything local, outputting report packages directly to: ./vdx_reports/
+-keeps everything local, outputting report packages directly to: ./vdx_reports/<Br>
 
 
 ## Credits
