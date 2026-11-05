@@ -157,10 +157,10 @@ Output Architecture
 -------------------
 
 vdx.py <br>
--outputs generated report packages to: %USERPROFILE%\.ssdx\vdx_reports\<br>
+-outputs generated report packages to: %USERPROFILE%\.ssdx\vdx_reports\ <br>
 
 vdx-p.py <br>
--keeps everything local, outputting report packages directly to: ./vdx_reports/<Br>
+-keeps everything local, outputting report packages directly to: ./vdx_reports/ <br>
 
 
 ## Credits
