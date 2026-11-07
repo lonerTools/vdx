@@ -122,18 +122,16 @@ Example Workflow D:
 
 - __Diff mode [1]__
 - Navigate to a directory with many text-based files.
-- Choosing the oldest file first helps, but is not required.
-- Select all files relevant to your batch.
+- Choose files in any order.
+- Select which directories/files are relevant to your batch.
 - Output the delta report for AI, the diff report for you.
 - __Flat mode [2]__
-- Navigate to the delta output directory.
-- Select the dense delta report generated from [1].
-- Output the flattened delta for AI, the diff for you.
+- Handled in Mode [1]
 - __Slice mode [3]__
-- Navigate to the flat delta.
-- Select the dense flat delta.
-- Choose number of slices (must not exceed total line count).
-- Feed your AI assistant pre-sliced flattened deltas with the index created in Mode [1]
+- Navigate to the vdx_reports directory.
+- Select all relevant files.
+- Choose the number of slices (must not exceed total line count).
+- Feed your AI assistant pre-sliced dense files with the index file.
 - Lowers AI overhead, makes data easier to see, get better answers.
 
 
@@ -153,8 +151,8 @@ Double-click run_vdx.bat, run_vdx.sh, or launch from your terminal. You will be 
   [3] Exit
 =====================================================================
 ```
-VDX menu
-========
+VDX Mode menu
+=============
 ```
   ======================================================
   ======================================================
@@ -183,7 +181,7 @@ Diff Menu [1]
 =============
 ```
 ============================================================
- CURRENT DIRECTORY : C:\VDX Video Demo\vdx development files\duplicate older
+ CURRENT DIRECTORY : C:\VDX Video Demo\vdx development files
  FILE/DIR MODE     : DIRECTORY +RECURSIVE # Shows Selection and Recursive modes
  SELECTIONS        : []
 ============================================================
