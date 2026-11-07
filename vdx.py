@@ -41,7 +41,9 @@ BLD = "\033[1m"
 RED = "\033[91m"
 MAG = "\033[95m"
 GRN = "\033[32m"
+CYN = "\033[36m"
 BLU = "\033[94m"
+GRY = "\033[38;5;242m" 
 CLS = "\033[H\033[J"
 
 # Protocol Tethering Constants
@@ -229,20 +231,27 @@ def compute_diff(base_src: str, target_src: str):
 
 # -- Report Writers --
 
-def write_batch_report(comparisons, outdir):
+def write_batch_report(comparisons, outdir, tsv_only=False):
     os.makedirs(outdir, exist_ok=True)
-    idx_lines = [PROTOCOL_HEADER_TSV.strip(), "target_file\tbase_file\tadded\tmodified\tdeleted\tnet_lines"]
+    
+    # The Index structure remains flat and strict
+    idx_lines = [
+        PROTOCOL_HEADER_TSV.strip(), 
+        "target_file\tbase_file\tadded_blocks\tmodified_changes\tdeleted_blocks\tnet_lines\tdensity_delta\ttime_gap\tjson_ptr"
+    ]
     
     meta_block = dict(PROTOCOL_META_JSON)
     meta_block["ts"] = datetime.now(timezone.utc).isoformat()
     batch_dense = {"_meta": meta_block, "comparisons": []}
     
-    md = ["# VDX Multi-File Batch Delta Report", f"**Timestamp:** {datetime.now().isoformat()}\n"]
+    md = ["# VDX Multi-File Chronological Delta Report", f"**Timestamp:** {datetime.now().isoformat()}\n"]
 
     for comp in comparisons:
         base_name = comp['base']
         target_name = comp['target']
         diff = comp['diff']
+        time_gap = comp.get('time_gap', 'N/A')
+        density_delta = comp.get('density_delta', '+0.000')
         
         total_added = sum(a['lines'] for a in diff['added'])
         total_deleted = sum(d['lines'] for d in diff['deleted'])
@@ -255,68 +264,154 @@ def write_batch_report(comparisons, outdir):
             'moved': len(diff['pure_moves'])
         }
         
-        idx_lines.append(f"{target_name}\t{base_name}\t{counts['added']}\t{counts['modified']}\t{counts['deleted']}\t{net:+d}")
-        batch_dense["comparisons"].append({"base": base_name, "target": target_name, "metrics": counts, "diff": diff})
+        json_ptr = ""
 
-        md.append(f"## Delta: `{base_name}` ➔ `{target_name}`")
-        md.append(f"- **Net Lines:** {net:+d} (+{total_added} / -{total_deleted})")
-        md.append(f"- **Added Blocks:** {counts['added']} | **Modified:** {counts['modified']} | **Deleted:** {counts['deleted']}\n")
+        if not tsv_only:
+            json_ptr = f"/comparisons/{len(batch_dense['comparisons'])}"
+            batch_dense["comparisons"].append({
+                "base": base_name,
+                "target": target_name,
+                "metrics": counts,
+                "diff": diff,
+            })
 
+            md.append(
+                f"## Delta: `{base_name}` ➔ `{target_name}` *({time_gap})*"
+            )
+            md.append(
+                f"- **Net Lines:** {net:+d} "
+                f"(+{total_added} / -{total_deleted}) | "
+                f"**Density Shift:** {density_delta}"
+            )
+            md.append(
+                f"- **Added Blocks:** {counts['added']} | "
+                f"**Modified:** {counts['modified']} | "
+                f"**Deleted:** {counts['deleted']}\n"
+            )
+
+        idx_lines.append(
+            f"{target_name}\t{base_name}\t"
+            f"{counts['added']}\t{counts['modified']}\t"
+            f"{counts['deleted']}\t{net:+d}\t"
+            f"{density_delta}\t{time_gap}\t{json_ptr}"
+        )
+
+    # Save out the maps matching user parameters
     with open(outdir / "index.tsv", "w", encoding='utf-8') as f:
         f.write('\n'.join(idx_lines) + '\n')
-    with open(outdir / "dense.json", "w", encoding='utf-8') as f:
-        json.dump(batch_dense, f, indent=2)
-    with open(outdir / "readable.md", "w", encoding='utf-8') as f:
-        f.write('\n'.join(md))
+        
+    if not tsv_only:
+        with open(outdir / "dense.json", "w", encoding="utf-8") as f:
+            json.dump(batch_dense, f, indent=2)
+
+        dense_hash = hashlib.sha256(
+            (outdir / "dense.json").read_bytes()
+        ).hexdigest()
+        idx_lines.insert(1, f"# DENSE_SHA256\t{dense_hash}")
+
+        with open(outdir / "readable.md", "w", encoding="utf-8") as f:
+            f.write('\n'.join(md))
+
+    with open(outdir / "index.tsv", "w", encoding="utf-8") as f:
+        f.write('\n'.join(idx_lines) + '\n')
 
     return outdir
 
 def write_flat_batch_report(file_records, outdir):
     os.makedirs(outdir, exist_ok=True)
-    idx_lines = [PROTOCOL_HEADER_TSV.strip(), "file_name\traw_lines\tclean_lines\ttimestamp"]
-    
+
+    json_ptr = f"/files/{len(flat_dense['files'])}"
+
+    idx_lines = [
+        PROTOCOL_HEADER_TSV.strip(),
+        "file_name\torigin_layer\traw_lines\tclean_lines\t"
+        "timestamp\tjson_ptr"
+    ]
+
     meta_block = dict(PROTOCOL_META_JSON)
     meta_block["ts"] = datetime.now(timezone.utc).isoformat()
-    flat_dense = {"_meta": meta_block, "files": []}
-    
-    md = ["# VDX Flat Batch AI Ingest Report", f"**Timestamp:** {datetime.now().isoformat()}\n"]
 
+
+    md = [
+        "# VDX Flat Batch AI Ingest Report",
+        f"**Timestamp:** {datetime.now().isoformat()}\n",
+        "## Structural Layer Breakdown",
+        "This package contains noise-reduced structural text assets grouped by origin layers:\n"
+    ]
+
+    # Group files by their parent directories for cleaner macro context mapping
+    grouped_by_layer = {}
     for rec in file_records:
-        fname = rec['name']
-        src = rec['src']
-        clean = rec['clean']
-        raw_count = len(src.splitlines())
-        clean_count = len(clean.splitlines())
+        layer = rec.get("origin_layer", "Root")
+        if layer not in grouped_by_layer:
+            grouped_by_layer[layer] = []
+        grouped_by_layer[layer].append(rec)
 
-        idx_lines.append(f"{fname}\t{raw_count}\t{clean_count}\t{datetime.now().isoformat()}")
-        flat_dense["files"].append({"file": fname, "raw_lines": raw_count, "clean_lines": clean_count, "content": clean})
+    for layer, records in sorted(grouped_by_layer.items()):
+        md.append(f"###  Layer Archive: `{layer}`")
+        
+        for rec in records:
+            fname = rec['name']
+            src = rec['src']
+            clean = rec['clean']
+            raw_count = len(src.splitlines())
+            clean_count = len(clean.splitlines())
 
-        md.append(f"## File: `{fname}` ({clean_count} clean lines / {raw_count} raw lines)")
-        md.append("```python" if fname.endswith('.py') else "```text")
-        md.append(clean)
-        md.append("```\n")
+            idx_lines.append(f"{fname}\t{layer}\t{raw_count}\t{clean_count}\t{datetime.now().isoformat()}\t{json_ptr}")
 
-    with open(outdir / "index.tsv", "w", encoding='utf-8') as f:
-        f.write('\n'.join(idx_lines) + '\n')
-    with open(outdir / "dense.json", "w", encoding='utf-8') as f:
+            flat_dense["files"].append({
+                "file": fname,
+                "origin_layer": layer,
+                "raw_lines": raw_count,
+                "clean_lines": clean_count,
+                "content": clean
+            })
+
+            md.append(f"####  File: `{fname}` ({clean_count} clean lines / {raw_count} raw lines)")
+            md.append("```python" if fname.endswith('.py') else "```text")
+            md.append(clean)
+            md.append("```\n")
+
+    with open(outdir / "dense.json", "w", encoding="utf-8") as f:
         json.dump(flat_dense, f, indent=2)
-    with open(outdir / "readable.md", "w", encoding='utf-8') as f:
+
+    dense_hash = hashlib.sha256(
+        (outdir / "dense.json").read_bytes()
+    ).hexdigest()
+    idx_lines.insert(1, f"# DENSE_SHA256\t{dense_hash}")
+
+    with open(outdir / "index.tsv", "w", encoding="utf-8") as f:
+        f.write('\n'.join(idx_lines) + '\n')
+
+    with open(outdir / "readable.md", "w", encoding="utf-8") as f:
         f.write('\n'.join(md))
 
     return outdir
 
-# -- Unified Interactive Directory & File Selection Menu --
 
 def interactive_file_selector(start_path: Path, single_select: bool = False):
     current = start_path.resolve()
     selected_files = []
     valid_extensions = ('.py', '.sh', '.json', '.jsonl', '.ndjson', '.jsonc', '.tsv', '.txt', '.md', '.csv', '.log', '.env', '.yaml', '.yml', '.ini', '.toml')
+    
+    layer_mode = "file" 
+    recursive_mode = False
 
     while True:
-        print("\033[H\033[J", end="")
-        print(f"\n" + f"{BLU}={RST}" * 60)
-        print(f"CURRENT DIRECTORY: {current}")
-        print(f"SELECTED BUCKET:   {[f.name for f in selected_files]}")
+        print(f"{CLS}", end="")
+        print(f"\n" + f"{RED}={RST}" * 60)
+        print(f"{RED}={RST}" * 60)
+        print(f" CURRENT DIRECTORY :{CYN} {current}{RST}")
+        print(f" FILE/DIR MODE     : {BLD}{layer_mode.upper()} " + (f"{GRN}+RECURSIVE{RST}" if recursive_mode and layer_mode == "directory" else ""))
+        
+        # Safe string conversion for mixed bucket types (Paths vs Tracker Dicts)
+        bucket_display = []
+        for item in selected_files:
+            if isinstance(item, dict):
+                bucket_display.append(item["name"])
+            else:
+                bucket_display.append(item.name)
+        print(f" SELECTIONS        : {bucket_display}")
         print(f"{BLU}={RST}" * 60)
 
         try:
@@ -329,54 +424,138 @@ def interactive_file_selector(start_path: Path, single_select: bool = False):
         dirs = [e for e in entries if e.is_dir() and not e.name.startswith('.')]
         files = [e for e in entries if e.is_file() and e.name.endswith(valid_extensions)]
 
-        print("  [B]  Back .. (Go up in directory)")
-        print(f"  [{GRN}D{RST}]  Done selecting (Proceed)")
-        print(f"  [{RED}Q{RST}]  Quit program")
-        print(f"{BLU}={RST}" * 60)
 
-        print("Directories:")
+        print(f"\n {CYN}Directories:{RST}")
         if not dirs:
             print("  (No subdirectories)")
         for idx, d in enumerate(dirs, 1):
-            print(f"  [{idx}]  {d.name}/")
+            # Check if this directory descriptor is already inside the tracker bucket
+            d_path = Path(d.path).resolve()
+            dir_marker = ""
+            for item in selected_files:
+                if isinstance(item, dict) and item.get("dir_path") == d_path:
+                    dir_marker = f"{GRN}{BLD} [SELECTED]{RST} "
+            print(f"  [{idx}] {d.name}{dir_marker}")
 
         offset = len(dirs)
-        print("\nFiles (compatible artifacts):")
+        print(f"{BLU}-----------------------------")
+        print(f"\n {MAG}Files (Text Docs):{RST}")
         if not files:
             print("  (No compatible text/artifact files)")
         for idx, f in enumerate(files, offset + 1):
             f_path = Path(f.path).resolve()
             marker = f"{GRN}{BLD} [SELECTED]{RST}" if f_path in selected_files else ""
             print(f"  [{idx}]  {f.name}{marker}")
-
         print(f"{BLU}={RST}" * 60)
-        prompt_text = "Input number to toggle/open, [B]ack, [D]one, or [Q]uit: " if not single_select else "Select file number: "
+        print("")
+
+        if layer_mode == "directory":
+            print(f"  [{CYN}R{RST}]  Recursive Mode ...                    (" + (f"{GRN}ON{RST}" if recursive_mode else f"{RED}OFF{RST}") + ")")
+        print(f"  [{CYN}F{RST}]  File/Dir Mode ...               (File <-> Directory)")
+        print(f"  [{BLU}B{RST}]  Back ...                        (^ Move directory ^)")
+        print(f"  [{GRN}D{RST}]  Done ...                         (Move to next step)")
+        print(f"  [{RED}Q{RST}]  Quit ...                        (Exit to Runner/CLI)")
+        print(f"{BLU}={RST}" * 60)
+        prompt_text = f" >> Input Option or Select Docs [{layer_mode.upper()} mode]: "
         choice = input(prompt_text).strip().lower()
 
         if choice == 'q':
-            print("\n\n Exiting...") 
-            print(f"               ...{RED}Stay sharp{RST} .. Not dull...")
+            print(f"{CLS}")
+            print(f"\n Exiting... ")
+            print(f"\n\n\n           ... {RED}Stay sharp{RST} .. {GRY}Not dull{RST} ...\n\n")
             sys.exit(0)
         elif choice == 'b':
             current = current.parent
+        elif choice == 'f':
+            layer_mode = "directory" if layer_mode == "file" else "file"
+        elif choice == 'r' and layer_mode == "directory":
+            recursive_mode = not recursive_mode
         elif choice == 'd':
             if len(selected_files) == 0:
                 print(f"  {RED}[!]{RST} Please select at least 1 file to proceed.")
                 input("  Press [ENTER] to continue...")
                 continue
-            return current, selected_files
+            
+            # Unpack and flatten any tracking descriptors before turning things over to main loops
+            final_files = []
+            for item in selected_files:
+                if isinstance(item, dict) and "dir_path" in item:
+                    d_path = item["dir_path"]
+                    if item["recursive"]:
+                        for ext in valid_extensions:
+                            final_files.extend(d_path.rglob(f"*{ext}"))
+                    else:
+                        final_files.extend([p for p in d_path.iterdir() if p.is_file() and p.suffix in valid_extensions])
+                else:
+                    final_files.append(item)
+            
+            # Clean and deduplicate chronological timeline paths
+            final_files = sorted(list(set(final_files)), key=os.path.getmtime)
+            return current, final_files
         else:
             try:
                 num = int(choice)
                 if 1 <= num <= len(dirs):
-                    current = Path(dirs[num - 1].path)
+                    target_dir_entry = dirs[num - 1]
+                    target_dir_path = Path(target_dir_entry.path).resolve()
+                    
+                    if layer_mode == "file":
+                        # Standard navigation behavior
+                        current = target_dir_path
+                    else:
+                        # Intercept folder selection immediately
+                        sub_files = []
+                        if recursive_mode:
+                            for ext in valid_extensions:
+                                sub_files.extend(target_dir_path.rglob(f"*{ext}"))
+                        else:
+                            sub_files = [p for p in target_dir_path.iterdir() if p.is_file() and p.suffix in valid_extensions]
+                        
+                        if not sub_files:
+                            print(f"\n  {RED}[!]{RST} No compatible files found inside `{target_dir_path.name}`.")
+                            input("  Press [ENTER] to continue...")
+                            continue
+
+                        # Isolate the oldest artifact anchor
+                        oldest_file_path = min(sub_files, key=os.path.getmtime)
+                        oldest_ts = datetime.fromtimestamp(os.path.getmtime(oldest_file_path)).strftime('%Y-%m-%d %H:%M')
+                        
+                        print(f"\n  {BLU}[LAYER SELECTION LOCK]{RST}")
+                        print(f"  Target Folder : {target_dir_path.name}/")
+                        print(f"  Total Assets  : {len(sub_files)} tracking files available")
+                        print(f"  Visual Anchor : Oldest found is {GRN}{oldest_file_path.name}{RST} ({oldest_ts})")
+                        
+                        confirm = input(f"\n  >> Track full folder containing {oldest_file_path.name}? [Y/n]: ").strip().lower()
+                        if confirm != 'n':
+                            descriptor_string = f"folder containing {oldest_file_path.name}"
+                            
+                            # Toggle logic match protection
+                            existing_match = None
+                            for item in selected_files:
+                                if isinstance(item, dict) and item.get("dir_path") == target_dir_path:
+                                    existing_match = item
+                                    break
+                            
+                            if existing_match:
+                                selected_files.remove(existing_match)
+                                print(f"  Removed folder tracker descriptor layer.")
+                            else:
+                                selected_files.append({
+                                    "name": descriptor_string,
+                                    "dir_path": target_dir_path,
+                                    "recursive": recursive_mode
+                                })
+                                print(f"  Folder descriptor layer added to bucket.")
+                            input("  Press [ENTER] to return...")
+                        
                 elif len(dirs) < num <= len(dirs) + len(files):
                     file_obj = files[num - len(dirs) - 1]
                     file_path = Path(file_obj.path).resolve()
                     
                     if single_select:
                         return current, [file_path]
-                        
+                    
+                    # Direct check against pure Path references inside the container
                     if file_path in selected_files:
                         selected_files.remove(file_path)
                         print(f"   {RED}Removed{RST} {file_path.name} from batch.")
@@ -387,6 +566,9 @@ def interactive_file_selector(start_path: Path, single_select: bool = False):
                     print(f"  {RED}[!]{RST} Invalid selection number.")
             except ValueError:
                 print(f"  {RED}[!]{RST} Invalid input.")
+
+
+
 
 # -- Option 3: Text File Slicer Logic --
 
@@ -445,7 +627,8 @@ def handle_text_splitting():
 
     tsv_lines = [
         PROTOCOL_HEADER_TSV.strip(),
-        "chunk_file\toriginal_file\tchunk_index\tstart_line\tend_line\tline_count\tchecksum_md5\ttimestamp"
+        "chunk_file\toriginal_file\tchunk_index\tstart_line\t"
+        "end_line\tline_count\tchecksum_md5\ttimestamp\tjson_ptr"
     ]
 
     meta_block = dict(PROTOCOL_META_JSON)
@@ -477,7 +660,7 @@ def handle_text_splitting():
             cf.writelines(chunk_lines)
 
         tsv_lines.append(
-            f"{chunk_filename}\t{file_path.name}\t{i+1}\t{start_idx+1}\t{end_idx}\t{len(chunk_lines)}\t{chunk_hash}\t{iso_ts}"
+            f"{chunk_filename}\t{file_path.name}\t{i+1}\t{start_idx+1}\t{end_idx}\t{len(chunk_lines)}\t{chunk_hash}\t{iso_ts}\t{json_ptr}"
         )
 
         json_index["chunks"].append({
@@ -487,18 +670,23 @@ def handle_text_splitting():
             "end_line": end_idx,
             "line_count": len(chunk_lines),
             "checksum_md5": chunk_hash,
-            "json_ptr": f"chunks[{i}]"
+            "json_ptr": json_ptr
         })
 
         print(f"  [Created] {chunk_filename} ({len(chunk_lines):,} lines | MD5: {chunk_hash[:8]})")
         start_idx = end_idx
 
     # Write tethered indices
-    with open(split_out_dir / "index.tsv", "w", encoding='utf-8') as f:
-        f.write('\n'.join(tsv_lines) + '\n')
-
-    with open(split_out_dir / "dense.json", "w", encoding='utf-8') as f:
+    with open(split_out_dir / "dense.json", "w", encoding="utf-8") as f:
         json.dump(json_index, f, indent=2)
+
+    dense_hash = hashlib.sha256(
+        (split_out_dir / "dense.json").read_bytes()
+    ).hexdigest()
+    tsv_lines.insert(1, f"# DENSE_SHA256\t{dense_hash}")
+
+    with open(split_out_dir / "index.tsv", "w", encoding="utf-8") as f:
+        f.write('\n'.join(tsv_lines) + '\n')
 
     print(f"\n{GRN}Successfully{RST} sliced file into {BLD}{num_chunks}{RST} parts!")
     print(f"Output directory: {split_out_dir}")
@@ -654,12 +842,12 @@ def main():
     args, unknown = parser.parse_known_args()
 
     print(f"{CLS}")
-    print(f"\n  {RED}======================================================{RST}")
-    print("  ======================================================")
-    print(f"                     {BLD}{RED}-- vdx --{RST}")
-    print(f"                 {BLD}Diff, Flatten, Slice{RST}")
-    print("  ======================================================")
-    print(f"  {RED}======================================================{RST}")
+    print(f"\n  {RED}======================================================================{RST}")
+    print("  ======================================================================")
+    print(f"                              {BLD}{RED}-- vdx --{RST}")
+    print(f"                         {BLD}Diff, Flatten, Slice{RST}")
+    print("  ======================================================================")
+    print(f"  {RED}======================================================================{RST}")
     print()
 
     # Auto-scan OUTPUT_DIR for past reports (displayed cleanly without conflicting numbers)
@@ -668,15 +856,15 @@ def main():
         past_reports = sorted([d.name for d in OUTPUT_DIR.iterdir() if d.is_dir()])
     
     if past_reports:
-        print(f"            {BLU}Recent Reports:{RST}")
+        print(f"                    {BLU}Recent Reports:{RST}")
         for rep in past_reports[:3]:  # Show top 3 recent ones
-            print(f"        {MAG}    • {rep}")
-        print(f"\n  {RST}{BLD}++++++++++++++++++++++++++++++++++++++++++++++++++++++\n{RST}")
+            print(f"                {MAG}    • {rep}")
+        print(f"\n  {GRY}++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++\n{RST}")
 
-    print(f"  {BLD}[1] Diff & Comparison Mode{RST} (Compare target files against ground truth)")
-    print(f"  {BLD}[2] Flatten Mode{RST}           (Reduce noise in 1 or more files)")
-    print(f"  {BLD}[3] Slice Mode{RST}             (Slice a text file into smaller files)")
-    print(f"  {BLD}[4] Reconstruct Mode{RST}       (Rebuild sliced files from past jobs)")
+    print(f"  {BLD}[1] Diff & Comparison Mode {GRY}(Compare target files against ground truth){RST}")
+    print(f"  {BLD}[2] Flatten Mode           {GRY}(Reduce noise in 1 or more files){RST}")
+    print(f"  {BLD}[3] Slice Mode             {GRY}(Slice a text file into smaller files){RST}")
+    print(f"  {BLD}[4] Reconstruct Mode       {GRY}(Rebuild sliced files from past jobs){RST}")
     
     mode_choice = args.mode or (input(f"\n  >>  Select mode [{BLD}1 - 4{RST}]: ").strip() or "1")
 
@@ -694,12 +882,12 @@ def main():
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
 
         if mode_choice == "2":
-            print(f"\n  Processing {MAG}{len(file_path_list)}{MAG} file(s) into a unified flattened package...")
+            print(f"\n  Processing {MAG}{len(file_path_list)}{RST} file(s) into a structured flattened package...")
             file_records = []
             for file_path in file_path_list:
                 target_file = file_path.name
+                origin_folder = file_path.parent.name or "Root"
                 
-                # Check for JSON variants
                 if file_path.suffix in ('.json', '.jsonl', '.ndjson', '.jsonc'):
                     try:
                         _, variant = load_json_variant(file_path)
@@ -710,53 +898,111 @@ def main():
                 with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
                     file_src = f.read()
                 file_clean = universal_normalize(file_src, target_file)
-                file_records.append({"name": target_file, "src": file_src, "clean": file_clean})
+                
+                file_records.append({
+                    "name": target_file, 
+                    "origin_layer": origin_folder,
+                    "src": file_src, 
+                    "clean": file_clean
+                })
 
             out_dir_path = OUTPUT_DIR / f"flat_scan_{ts}"
             write_flat_batch_report(file_records, out_dir_path)
 
-            print(f"\n   Unified flattened package successfully generated at:")
+            print(f"\n   Unified flattened layer package successfully generated at:")
             print(f"  {MAG}{out_dir_path}{RST}")
+
 
         else:
             if len(file_path_list) < 2:
-                print(f"  {RED}[!]{RST} Differential mode requires at least 2 files (1 base + 1 target).")
+                print(f"  {RED}[!]{RST} Differential mode requires at least 2 files.")
                 input(f"  Press [{GRN}ENTER{RST}] to continue...")
                 continue
 
-            base_file_path = file_path_list[0]
-            target_file_paths = file_path_list[1:]
+            # 1. Timeline configuration and format layout selector
+            print(f"\n  {BLU}Timeline Configuration:{RST}")
+            print(" [1] Forward Timeline (Oldest ➔ Newest) - Track evolution")
+            print(" [2] Reverse Timeline (Newest ➔ Oldest) - Audit backward")
+            time_choice = input(f"\n  >> Select timeline order [Default: 1]: ").strip()
+            reverse_order = True if time_choice == "2" else False
 
-            base_file = base_file_path.name
-            target_files = [p.name for p in target_file_paths]
+            print(f"\n  {BLU}Output Format Profile:{RST}")
+            print(" [1] Full Ingest Package (TSV JSON MD)")
+            print(" [2] Lightweight Mapping Only (TSV Index Only - Extra Token-Saving)")
+            fmt_choice = input(f"\n  >> Select output profile [Default: 1]: ").strip()
+            tsv_only = True if fmt_choice == "2" else False
 
-            print(f"\n  Baseline (Reference): {base_file_path}")
-            print(f"  Comparing targets: {MAG}{target_file_paths}{RST}")
+            # 2. Force strict chronological sorting based on absolute filesystem time
+            sorted_file_paths = sorted(file_path_list, key=os.path.getmtime, reverse=reverse_order)
 
-            with open(base_file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                base_src = f.read()
-            base_clean = universal_normalize(base_src, base_file)
+            direction_label = "Reverse" if reverse_order else "Forward"
+            print(f"\n  Running {direction_label} sequential scan across {MAG}{len(sorted_file_paths)}{RST} files...")
 
             comparisons = []
-            for t_path in target_file_paths:
-                t_file = t_path.name
-                with open(t_path, 'r', encoding='utf-8', errors='ignore') as f:
-                    t_src = f.read()
-                t_clean = universal_normalize(t_src, t_file)
+            
+            # 3. Pairwise sliding window calculation
+            for i in range(len(sorted_file_paths) - 1):
+                base_file_path = sorted_file_paths[i]
+                target_file_path = sorted_file_paths[i + 1]
 
+                base_file = base_file_path.name
+                target_file = target_file_path.name
+
+                # Calculate chronological time gaps between saves
+                time_base = os.path.getmtime(base_file_path)
+                time_target = os.path.getmtime(target_file_path)
+                time_diff_seconds = abs(time_target - time_base)
+
+                if time_diff_seconds < 60:
+                    time_gap = f"{int(time_diff_seconds)}s apart"
+                elif time_diff_seconds < 3600:
+                    time_gap = f"{int(time_diff_seconds // 60)}m apart"
+                else:
+                    time_gap = f"{round(time_diff_seconds / 3600, 1)}h apart"
+
+                print(f"    [{i+1}] Processing: {base_file} ➔ {target_file} ({time_gap})")
+
+                # Read raw payloads
+                with open(base_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    base_src = f.read()
+                with open(target_file_path, 'r', encoding='utf-8', errors='ignore') as f:
+                    t_src = f.read()
+
+                # Normalize text
+                base_clean = universal_normalize(base_src, base_file)
+                t_clean = universal_normalize(t_src, target_file)
+
+                # Calculate Syntactic Density (Clean Lines / Raw Lines)
+                raw_base_len = len(base_src.splitlines()) or 1
+                raw_target_len = len(t_src.splitlines()) or 1
+                
+                density_base = len(base_clean.splitlines()) / raw_base_len
+                density_target = len(t_clean.splitlines()) / raw_target_len
+                density_delta = density_target - density_base
+
+                # Heavy structural processing for the Library
                 diff = compute_diff(base_clean, t_clean)
-                comparisons.append({"base": base_file, "target": t_file, "diff": diff})
+                
+                comparisons.append({
+                    "base": base_file, 
+                    "target": target_file, 
+                    "diff": diff,
+                    "time_gap": time_gap,
+                    "density_delta": f"{density_delta:+.3f}"
+                })
 
             out_dir_path = OUTPUT_DIR / f"diff_scan_{ts}"
-            write_batch_report(comparisons, out_dir_path)
+            write_batch_report(comparisons, out_dir_path, tsv_only=tsv_only)
 
-            print(f"\n   Diff-file batch package successfully generated at:")
+            print(f"\n   VDX delta package successfully generated at:")
             print(f"  {MAG}{out_dir_path}{RST}")
+
+
 
         again = input(f"\n >> {BLU}Run another job{RST}? [y/N]: ").strip().lower()
         if again != 'y':
             print("\n\n Exiting...")
-            print(f"\n              ... {RED}Stay sharp{RST} .. Not dull ...")
+            print(f"\n              ... {RED}Stay sharp{RST} .. {GRY}Not dull{RST} ...")
             break
         current_dir = target_dir
 
@@ -765,5 +1011,5 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"\n[{RED}ERROR{RST}]: An unexpected error occurred: {e}")
-        print(f"\n\n    ...{RED} Stay sharp{RST} .. Not dull ...")
+        print(f"\n\n    ...{RED} Stay sharp{RST} .. {GRY}Not dull{RST} ...")
         input("\n                    Press [ENTER] to exit...")
