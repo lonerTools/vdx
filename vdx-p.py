@@ -319,8 +319,11 @@ def write_batch_report(comparisons, outdir, tsv_only=False):
 def write_flat_batch_report(file_records, outdir):
     os.makedirs(outdir, exist_ok=True)
 
-    json_ptr = f"/files/{len(flat_dense['files'])}"
-
+    flat_dense = {
+        "timestamp": datetime.now().isoformat(),
+        "files": []
+    }
+    
     idx_lines = [
         PROTOCOL_HEADER_TSV.strip(),
         "file_name\torigin_layer\traw_lines\tclean_lines\t"
@@ -329,7 +332,6 @@ def write_flat_batch_report(file_records, outdir):
 
     meta_block = dict(PROTOCOL_META_JSON)
     meta_block["ts"] = datetime.now(timezone.utc).isoformat()
-
 
     md = [
         "# VDX Flat Batch AI Ingest Report",
@@ -355,6 +357,9 @@ def write_flat_batch_report(file_records, outdir):
             clean = rec['clean']
             raw_count = len(src.splitlines())
             clean_count = len(clean.splitlines())
+
+            # Generate dynamic pointer based on the current index of 'files'
+            json_ptr = f"/files/{len(flat_dense['files'])}"
 
             idx_lines.append(f"{fname}\t{layer}\t{raw_count}\t{clean_count}\t{datetime.now().isoformat()}\t{json_ptr}")
 

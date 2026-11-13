@@ -231,89 +231,79 @@ def compute_diff(base_src: str, target_src: str):
 
 # -- Report Writers --
 
-def write_batch_report(comparisons, outdir, tsv_only=False):
+def write_flat_batch_report(file_records, outdir):
     os.makedirs(outdir, exist_ok=True)
+
+    flat_dense = {
+        "timestamp": datetime.now().isoformat(),
+        "files": []
+    }
     
-    # The Index structure remains flat and strict
     idx_lines = [
-        PROTOCOL_HEADER_TSV.strip(), 
-        "target_file\tbase_file\tadded_blocks\tmodified_changes\tdeleted_blocks\tnet_lines\tdensity_delta\ttime_gap\tjson_ptr"
+        PROTOCOL_HEADER_TSV.strip(),
+        "file_name\torigin_layer\traw_lines\tclean_lines\t"
+        "timestamp\tjson_ptr"
     ]
-    
+
     meta_block = dict(PROTOCOL_META_JSON)
     meta_block["ts"] = datetime.now(timezone.utc).isoformat()
-    batch_dense = {"_meta": meta_block, "comparisons": []}
-    
-    md = ["# VDX Multi-File Chronological Delta Report", f"**Timestamp:** {datetime.now().isoformat()}\n"]
 
-    for comp in comparisons:
-        base_name = comp['base']
-        target_name = comp['target']
-        diff = comp['diff']
-        time_gap = comp.get('time_gap', 'N/A')
-        density_delta = comp.get('density_delta', '+0.000')
-        
-        total_added = sum(a['lines'] for a in diff['added'])
-        total_deleted = sum(d['lines'] for d in diff['deleted'])
-        net = total_added - total_deleted
-        
-        counts = {
-            'added': len(diff['added']),
-            'modified': len(diff['modified']),
-            'deleted': len(diff['deleted']),
-            'moved': len(diff['pure_moves'])
-        }
-        
-        json_ptr = ""
+    md = [
+        "# VDX Flat Batch AI Ingest Report",
+        f"**Timestamp:** {datetime.now().isoformat()}\n",
+        "## Structural Layer Breakdown",
+        "This package contains noise-reduced structural text assets grouped by origin layers:\n"
+    ]
 
-        if not tsv_only:
-            json_ptr = f"/comparisons/{len(batch_dense['comparisons'])}"
-            batch_dense["comparisons"].append({
-                "base": base_name,
-                "target": target_name,
-                "metrics": counts,
-                "diff": diff,
+    # Group files by their parent directories for cleaner macro context mapping
+    grouped_by_layer = {}
+    for rec in file_records:
+        layer = rec.get("origin_layer", "Root")
+        if layer not in grouped_by_layer:
+            grouped_by_layer[layer] = []
+        grouped_by_layer[layer].append(rec)
+
+    for layer, records in sorted(grouped_by_layer.items()):
+        md.append(f"###  Layer Archive: `{layer}`")
+        
+        for rec in records:
+            fname = rec['name']
+            src = rec['src']
+            clean = rec['clean']
+            raw_count = len(src.splitlines())
+            clean_count = len(clean.splitlines())
+
+            # Generate dynamic pointer based on the current index of 'files'
+            json_ptr = f"/files/{len(flat_dense['files'])}"
+
+            idx_lines.append(f"{fname}\t{layer}\t{raw_count}\t{clean_count}\t{datetime.now().isoformat()}\t{json_ptr}")
+
+            flat_dense["files"].append({
+                "file": fname,
+                "origin_layer": layer,
+                "raw_lines": raw_count,
+                "clean_lines": clean_count,
+                "content": clean
             })
 
-            md.append(
-                f"## Delta: `{base_name}` ➔ `{target_name}` *({time_gap})*"
-            )
-            md.append(
-                f"- **Net Lines:** {net:+d} "
-                f"(+{total_added} / -{total_deleted}) | "
-                f"**Density Shift:** {density_delta}"
-            )
-            md.append(
-                f"- **Added Blocks:** {counts['added']} | "
-                f"**Modified:** {counts['modified']} | "
-                f"**Deleted:** {counts['deleted']}\n"
-            )
+            md.append(f"####  File: `{fname}` ({clean_count} clean lines / {raw_count} raw lines)")
+            md.append("```python" if fname.endswith('.py') else "```text")
+            md.append(clean)
+            md.append("```\n")
 
-        idx_lines.append(
-            f"{target_name}\t{base_name}\t"
-            f"{counts['added']}\t{counts['modified']}\t"
-            f"{counts['deleted']}\t{net:+d}\t"
-            f"{density_delta}\t{time_gap}\t{json_ptr}"
-        )
+    with open(outdir / "dense.json", "w", encoding="utf-8") as f:
+        json.dump(flat_dense, f, indent=2)
 
-    # Save out the maps matching user parameters
-    with open(outdir / "index.tsv", "w", encoding='utf-8') as f:
-        f.write('\n'.join(idx_lines) + '\n')
-        
-    if not tsv_only:
-        with open(outdir / "dense.json", "w", encoding="utf-8") as f:
-            json.dump(batch_dense, f, indent=2)
-
-        dense_hash = hashlib.sha256(
-            (outdir / "dense.json").read_bytes()
-        ).hexdigest()
-        idx_lines.insert(1, f"# DENSE_SHA256\t{dense_hash}")
-
-        with open(outdir / "readable.md", "w", encoding="utf-8") as f:
-            f.write('\n'.join(md))
+    dense_hash = hashlib.sha256(
+        (outdir / "dense.json").read_bytes()
+    ).hexdigest()
+    idx_lines.insert(1, f"# DENSE_SHA256\t{dense_hash}")
 
     with open(outdir / "index.tsv", "w", encoding="utf-8") as f:
         f.write('\n'.join(idx_lines) + '\n')
+
+    with open(outdir / "readable.md", "w", encoding="utf-8") as f:
+        f.write('\n'.join(md))
 
     return outdir
 
